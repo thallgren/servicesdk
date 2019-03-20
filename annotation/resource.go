@@ -13,8 +13,24 @@ import (
 )
 
 var ResourceType px.ObjectType
+var CustomDataType px.ObjectType
 
 func init() {
+	CustomDataType = px.NewGoObjectType(`Lyra::CustomData`, reflect.TypeOf((*CustomData)(nil)).Elem(), `Annotation{
+    attributes => {
+			# Arbitrary data used by custom implementations
+      data => Hash[String[1],RichData]
+    }
+	}`,
+		func(ctx px.Context, args []px.Value) px.Value {
+			return NewCustomData(args[0].(px.OrderedMap))
+		},
+		func(ctx px.Context, args []px.Value) px.Value {
+			h := args[0].(*types.Hash)
+			return NewCustomData(h.Get5(`data`, px.EmptyMap).(px.OrderedMap))
+		},
+	)
+
 	ResourceType = px.NewGoObjectType(`Lyra::Resource`, reflect.TypeOf((*Resource)(nil)).Elem(), `Annotation{
     attributes => {
       # immutableAttributes lists the names of the attributes that cannot be
@@ -43,7 +59,7 @@ func init() {
 			case 2:
 				return NewResource(ctx, args[0], args[1], nil)
 			default:
-				return NewResource(ctx, args[0], args[1], args[3])
+				return NewResource(ctx, args[0], args[1], args[2])
 			}
 		},
 
@@ -51,6 +67,54 @@ func init() {
 			h := args[0].(*types.Hash)
 			return NewResource(ctx, h.Get5(`immutableAttributes`, px.Undef), h.Get5(`providedAttributes`, px.Undef), h.Get5(`relationships`, px.Undef))
 		})
+}
+
+type CustomData interface {
+	px.PuppetObject
+
+	Data() px.OrderedMap
+}
+
+type customData struct {
+	data px.OrderedMap
+}
+
+func NewCustomData(data px.OrderedMap) CustomData {
+	return &customData{data}
+}
+
+func (c *customData) Equals(value interface{}, guard px.Guard) bool {
+	if oc, ok := value.(*customData); ok {
+		return c.data.Equals(oc.data, guard)
+	}
+	return false
+}
+
+func (c *customData) PType() px.Type {
+	return CustomDataType
+}
+
+func (c *customData) String() string {
+	return px.ToString(c)
+}
+
+func (c *customData) ToString(bld io.Writer, format px.FormatContext, g px.RDetect) {
+	types.ObjectToString(c, format, bld, g)
+}
+
+func (c *customData) Get(key string) (value px.Value, ok bool) {
+	if key == `data` {
+		return c.data, true
+	}
+	return nil, false
+}
+
+func (c *customData) InitHash() px.OrderedMap {
+	return px.SingletonMap(`data`, c.data)
+}
+
+func (c *customData) Data() px.OrderedMap {
+	return c.data
 }
 
 type Resource interface {

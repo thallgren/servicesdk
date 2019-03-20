@@ -22,6 +22,7 @@ type rtBuilder struct {
 	immutableAttrs []string
 	providedAttrs  []string
 	tags           map[string]string
+	customData     map[string]map[string]interface{}
 }
 
 func (rb *rtBuilder) AddRelationship(name, to, kind, cardinality, reverseName string, keys []string) {
@@ -45,6 +46,17 @@ func (rb *rtBuilder) ImmutableAttributes(names ...string) {
 		rb.immutableAttrs = names
 	} else {
 		rb.immutableAttrs = append(rb.immutableAttrs, names...)
+	}
+}
+
+func (rb *rtBuilder) CustomData(customId, key string, value interface{}) {
+	if rb.customData == nil {
+		rb.customData = make(map[string]map[string]interface{}, 0)
+	}
+	if cd, ok := rb.customData[customId]; ok {
+		cd[key] = value
+	} else {
+		rb.customData[customId] = map[string]interface{}{key: value}
 	}
 }
 
@@ -77,7 +89,7 @@ func (rb *rtBuilder) Build(goType interface{}) px.AnnotatedType {
 		rt = reflect.TypeOf(goType)
 	}
 
-	annotations := px.EmptyMap
+	ae := make([]*types.HashEntry, 0)
 	if rb.immutableAttrs != nil || rb.providedAttrs != nil || rb.relationships != nil {
 		as := make([]*types.HashEntry, 0, 3)
 		if rb.immutableAttrs != nil {
@@ -89,7 +101,16 @@ func (rb *rtBuilder) Build(goType interface{}) px.AnnotatedType {
 		if rb.relationships != nil {
 			as = append(as, types.WrapHashEntry2(`relationships`, types.WrapHash(rb.relationships)))
 		}
-		annotations = types.WrapHash([]*types.HashEntry{types.WrapHashEntry(annotation.ResourceType, types.WrapHash(as))})
+		ae = append(ae, types.WrapHashEntry(annotation.ResourceType, types.WrapHash(as)))
+	}
+	if rb.customData != nil {
+		ae = append(ae, types.WrapHashEntry(annotation.CustomDataType, px.Wrap(rb.ctx, rb.customData)))
+	}
+	var annotations px.OrderedMap
+	if len(ae) > 0 {
+		annotations = types.WrapHash(ae)
+	} else {
+		annotations = px.EmptyMap
 	}
 	return px.NewAnnotatedType(rt, rb.tags, annotations)
 }
