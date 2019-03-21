@@ -117,6 +117,10 @@ func (c *customData) Data() px.OrderedMap {
 	return c.data
 }
 
+func (r *customData) Validate(c px.Context, annotatedType px.Annotatable) {
+
+}
+
 type Resource interface {
 	px.PuppetObject
 

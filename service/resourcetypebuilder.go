@@ -12,6 +12,7 @@ type ResourceTypeBuilder interface {
 	AddRelationship(name, to, kind, cardinality, reverseName string, keys []string)
 	ImmutableAttributes(names ...string)
 	ProvidedAttributes(names ...string)
+	CustomData(customId, key string, value interface{})
 	Tags(tags map[string]string)
 	Build(goType interface{}) px.AnnotatedType
 }
